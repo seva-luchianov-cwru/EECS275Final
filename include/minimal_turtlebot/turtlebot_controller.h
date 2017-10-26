@@ -8,6 +8,9 @@
 
 struct turtlebotInputs
 {
+	// time
+	uint64_t nanoSecs;
+
 	//wheel drop states
 	uint8_t leftWheelDropped;
 	uint8_t rightWheelDropped; 

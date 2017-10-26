@@ -25,7 +25,8 @@ void colorImageCallback(const sensor_msgs::Image& image_data_holder)
 { 
 	static uint32_t colorImageInfoCounter = 0; 
 	
-	localTurtleBotInputs.colorImage=image_data_holder; 
+	localTurtleBotInputs.colorImage=image_data_holder;
+	localTurtleBotInputs.nanoSecs = ros::Time::now().toNSec();
 	if (colorImageInfoCounter > 30)
 	{
 		ROS_INFO("color image height: %u",image_data_holder.height);
@@ -44,6 +45,7 @@ void depthImageCallback(const sensor_msgs::Image& image_data_holder)
 	static uint32_t depthImageInfoCounter = 0; 
 	
 	localTurtleBotInputs.depthImage=image_data_holder; 
+	localTurtleBotInputs.nanoSecs = ros::Time::now().toNSec();
 	if (depthImageInfoCounter > 1)
 	{
 		ROS_INFO("depth image height: %u",image_data_holder.height);
@@ -61,6 +63,7 @@ void depthImageCallback(const sensor_msgs::Image& image_data_holder)
 void wheelDropCallBack(const kobuki_msgs::WheelDropEvent& wheel_data_holder) 
 { 
 	
+	localTurtleBotInputs.nanoSecs = ros::Time::now().toNSec();
 	if (wheel_data_holder.wheel == wheel_data_holder.LEFT)
 	{
 		localTurtleBotInputs.leftWheelDropped = wheel_data_holder.state; 
@@ -77,6 +80,7 @@ void wheelDropCallBack(const kobuki_msgs::WheelDropEvent& wheel_data_holder)
 
 void bumperMessageCallback(const kobuki_msgs::BumperEvent& bumper_data_holder) 
 { 
+	localTurtleBotInputs.nanoSecs = ros::Time::now().toNSec();
 	if (bumper_data_holder.bumper == bumper_data_holder.LEFT)
 	{
 		localTurtleBotInputs.leftBumperPressed = bumper_data_holder.state; 
@@ -117,7 +121,7 @@ int main(int argc, char **argv)
   //publish sound and command vel messages 
   
   ros::Publisher my_publisher_object = n.advertise<kobuki_msgs::Sound>("mobile_base/commands/sound", 1);
-  ros::Publisher cmd_vel_pub_ = n.advertise<geometry_msgs::Twist>("/cmd_vel", 1);
+  ros::Publisher cmd_vel_pub_ = n.advertise<geometry_msgs::Twist>("mobile_base/commands/velocity", 1);
   
 
   
