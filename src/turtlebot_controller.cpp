@@ -13,7 +13,7 @@ void turtlebot_controller(turtlebotInputs turtlebot_inputs, uint8_t *soundValue,
 
 
     // Sensor Condition
-    if (ignoreBumper == false && (turtlebotInputs.leftBumperPressed == 1 ||  turtlebotInputs.rightBumperPressed == 1 || turtlebotInputs.centerBumperPressed == 1)) {
+    if (ignoreBumper == false && (turtlebot_inputs.leftBumperPressed == 1 ||  turtlebot_inputs.rightBumperPressed == 1 || turtlebot_inputs.centerBumperPressed == 1)) {
         backingUp = true;
         ignoreBumper = true;
     } 
@@ -37,7 +37,7 @@ void turtlebot_controller(turtlebotInputs turtlebot_inputs, uint8_t *soundValue,
         *vel = 0;
         actionCounter++;
         
-        if (actionCounter >= 30) {
+        if (actionCounter >= 90) {
             turning = false;
             ignoreBumper = false;
             actionCounter = 0;
