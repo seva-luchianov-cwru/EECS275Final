@@ -4,6 +4,24 @@
 #include <stdint.h>
 #include <sensor_msgs/Image.h>
 
+#include<ros/ros.h> 
+#include<std_msgs/Float64.h> 
+#include<kobuki_msgs/WheelDropEvent.h>
+#include<kobuki_msgs/BumperEvent.h>
+#include<kobuki_msgs/CliffEvent.h>
+#include<kobuki_msgs/Sound.h>
+#include<kobuki_msgs/SensorState.h>
+#include <geometry_msgs/Twist.h>
+#include "minimal_turtlebot/turtlebot_controller.h"
+#include <sensor_msgs/CompressedImage.h>
+#include <sensor_msgs/Image.h>
+#include <sensor_msgs/Imu.h>
+#include <sensor_msgs/LaserScan.h>
+#include <stdlib.h>
+#include <string>
+#include <vector>
+#include <math.h>
+
 
 
 struct turtlebotInputs
@@ -23,6 +41,36 @@ struct turtlebotInputs
 	//color and depth images
 	sensor_msgs::Image colorImage;  
 	sensor_msgs::Image depthImage;  
+	
+	//cliff states
+	uint8_t sensor0State; 
+	uint8_t sensor1State; 
+	uint8_t sensor2State; 
+	
+	//laserscan data
+	std::vector<float> ranges;
+	float minAngle; 
+	float maxAngle; 
+	float angleIncrement; 
+	int numPoints; 
+	
+	//imu data 
+	float linearAccelX; 
+	float linearAccelY; 
+	float linearAccelZ; 
+	
+	float angularVelocityX; 
+	float angularVelocityY; 
+	float angularVelocityZ;
+	
+	float orientationX;
+	float orientationY;
+	float orientationZ;
+	float orientationW; 
+	
+	//batt voltage
+	float battVoltage; 
+	
 	
 };
 

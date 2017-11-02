@@ -1,13 +1,4 @@
-
-#include<ros/ros.h> 
-#include<std_msgs/Float64.h> 
-#include<kobuki_msgs/WheelDropEvent.h>
-#include<kobuki_msgs/BumperEvent.h>
-#include<kobuki_msgs/Sound.h>
-#include <geometry_msgs/Twist.h>
 #include "minimal_turtlebot/turtlebot_controller.h"
-#include <sensor_msgs/CompressedImage.h>
-#include <sensor_msgs/Image.h>
 
 //instantiate some special types for our commands  
 kobuki_msgs::Sound soundValue; 
@@ -21,12 +12,68 @@ uint8_t soundValueUpdateCounter = 0;
   
 turtlebotInputs localTurtleBotInputs; 
 
+void coreCallback(const kobuki_msgs::SensorState& sensor_state) 
+{ 
+	
+	localTurtleBotInputs.battVoltage = sensor_state.battery; 
+	localTurtleBotInputs.battVoltage = localTurtleBotInputs.battVoltage*0.1; 
+	
+	
+}  
+void imuCallback(const sensor_msgs::Imu& imu_data) 
+{ 
+	
+	localTurtleBotInputs.linearAccelX = imu_data.linear_acceleration.x; 
+	localTurtleBotInputs.linearAccelY = imu_data.linear_acceleration.y; 
+	localTurtleBotInputs.linearAccelZ = imu_data.linear_acceleration.z; 
+	
+	localTurtleBotInputs.angularVelocityX = imu_data.angular_velocity.x;
+	localTurtleBotInputs.angularVelocityY = imu_data.angular_velocity.y; 
+	localTurtleBotInputs.angularVelocityZ = imu_data.angular_velocity.z;
+	
+	localTurtleBotInputs.orientationX = imu_data.orientation.x;
+	localTurtleBotInputs.orientationY = imu_data.orientation.y;
+	localTurtleBotInputs.orientationZ = imu_data.orientation.z;
+	
+}  
+
+void scanCallback(const sensor_msgs::LaserScan& scan_data) 
+{ 
+	
+	localTurtleBotInputs.ranges=scan_data.ranges; 
+	localTurtleBotInputs.minAngle=scan_data.angle_min; 
+	localTurtleBotInputs.maxAngle=scan_data.angle_max; 
+	localTurtleBotInputs.angleIncrement=scan_data.angle_increment; 
+	localTurtleBotInputs.numPoints=localTurtleBotInputs.ranges.size(); 
+	//ROS_INFO("number scan points is: %i",localTurtleBotInputs.numPoints); 
+	
+} 
+
+void cliffCallback(const kobuki_msgs::CliffEvent& cliff_data) 
+{ 
+	if (cliff_data.sensor == 0)
+	{
+		localTurtleBotInputs.sensor0State = cliff_data.state;
+		ROS_INFO("cliff sensor 0 state is: %u",localTurtleBotInputs.sensor0State); 
+	}
+	else if (cliff_data.sensor == 1)
+	{
+		localTurtleBotInputs.sensor1State = cliff_data.state;
+		ROS_INFO("cliff sensor 1 state is: %u",localTurtleBotInputs.sensor1State); 
+	}
+	else if (cliff_data.sensor == 2)
+	{
+		localTurtleBotInputs.sensor2State = cliff_data.state;
+		ROS_INFO("cliff sensor 2 state is: %u",localTurtleBotInputs.sensor2State); 
+	}
+	
+} 
+
 void colorImageCallback(const sensor_msgs::Image& image_data_holder) 
 { 
 	static uint32_t colorImageInfoCounter = 0; 
 	
 	localTurtleBotInputs.colorImage=image_data_holder;
-	localTurtleBotInputs.nanoSecs = ros::Time::now().toNSec();
 	if (colorImageInfoCounter > 30)
 	{
 		ROS_INFO("color image height: %u",image_data_holder.height);
@@ -45,7 +92,6 @@ void depthImageCallback(const sensor_msgs::Image& image_data_holder)
 	static uint32_t depthImageInfoCounter = 0; 
 	
 	localTurtleBotInputs.depthImage=image_data_holder; 
-	localTurtleBotInputs.nanoSecs = ros::Time::now().toNSec();
 	if (depthImageInfoCounter > 1)
 	{
 		ROS_INFO("depth image height: %u",image_data_holder.height);
@@ -63,7 +109,6 @@ void depthImageCallback(const sensor_msgs::Image& image_data_holder)
 void wheelDropCallBack(const kobuki_msgs::WheelDropEvent& wheel_data_holder) 
 { 
 	
-	localTurtleBotInputs.nanoSecs = ros::Time::now().toNSec();
 	if (wheel_data_holder.wheel == wheel_data_holder.LEFT)
 	{
 		localTurtleBotInputs.leftWheelDropped = wheel_data_holder.state; 
@@ -80,7 +125,7 @@ void wheelDropCallBack(const kobuki_msgs::WheelDropEvent& wheel_data_holder)
 
 void bumperMessageCallback(const kobuki_msgs::BumperEvent& bumper_data_holder) 
 { 
-	localTurtleBotInputs.nanoSecs = ros::Time::now().toNSec();
+	
 	if (bumper_data_holder.bumper == bumper_data_holder.LEFT)
 	{
 		localTurtleBotInputs.leftBumperPressed = bumper_data_holder.state; 
@@ -115,8 +160,15 @@ int main(int argc, char **argv)
   //subscribe to wheel drop and bumper messages
   ros::Subscriber my_wheel_drop_subscription= n.subscribe("mobile_base/events/wheel_drop",1,wheelDropCallBack); 
   ros::Subscriber my_bumper_subscription= n.subscribe("mobile_base/events/bumper",1,bumperMessageCallback); 
-  ros::Subscriber colorImageSubscription= n.subscribe("camera/rgb/image_rect_color",1,colorImageCallback); 
-  ros::Subscriber depthSubscription= n.subscribe("camera/depth/image_raw",1,depthImageCallback); 
+  ros::Subscriber my_cliff_subscription= n.subscribe("mobile_base/events/cliff",1,cliffCallback); 
+  ros::Subscriber my_imu_subscription= n.subscribe("mobile_base/sensors/imu_data",1,imuCallback); 
+  ros::Subscriber my_core_subscription= n.subscribe("mobile_base/sensors/core",1,coreCallback); 
+  
+  //We don't need color image or depth images for this semester, let's just look at laser scan topics
+  //ros::Subscriber colorImageSubscription= n.subscribe("camera/rgb/image_rect_color",1,colorImageCallback); 
+  //ros::Subscriber depthSubscription= n.subscribe("camera/depth/image_raw",1,depthImageCallback); 
+  
+  ros::Subscriber scanSubscription= n.subscribe("scan",1,scanCallback); 
   
   //publish sound and command vel messages 
   
@@ -128,6 +180,7 @@ int main(int argc, char **argv)
   while(ros::ok())
   {
 	ros::spinOnce();
+	localTurtleBotInputs.nanoSecs = ros::Time::now().toNSec();
 	turtlebot_controller(localTurtleBotInputs, &localSoundValue, &localLinearSpeed, &localAngularSpeed);
 	
 	soundValue.value=localSoundValue;
