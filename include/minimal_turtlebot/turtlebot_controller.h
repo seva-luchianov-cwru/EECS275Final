@@ -11,6 +11,7 @@
 #include<kobuki_msgs/CliffEvent.h>
 #include<kobuki_msgs/Sound.h>
 #include<kobuki_msgs/SensorState.h>
+#include <geometry_msgs/PoseWithCovarianceStamped.h>
 #include <geometry_msgs/Twist.h>
 #include "minimal_turtlebot/turtlebot_controller.h"
 #include <sensor_msgs/CompressedImage.h>
@@ -70,6 +71,14 @@ struct turtlebotInputs
 	
 	//batt voltage
 	float battVoltage; 
+	
+	//odom
+	
+	float x; 
+	float y; 
+	float z_angle; 
+	float orientation_omega; 
+	
 	
 	
 };
