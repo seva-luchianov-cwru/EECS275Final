@@ -7,6 +7,9 @@ int turnDirection = 0;
 bool ignoreBumper = false;
 bool fullStop = false;
 int actionCounter = 0;
+int waitTime = 0;
+bool waiting = false;
+bool postWaitAction = false;
 
 void turtlebot_controller(turtlebotInputs turtlebot_inputs, uint8_t *soundValue, float *vel, float *ang_vel) {
 	double horizontalAcceleration = pow(pow(turtlebot_inputs.linearAccelX, 2) + pow(turtlebot_inputs.linearAccelY, 2), 0.5);
@@ -39,8 +42,54 @@ void turtlebot_controller(turtlebotInputs turtlebot_inputs, uint8_t *soundValue,
 				turnDirection = 1;
 		    }
 	    }
-
-	    // Backing Up Condition
+	    
+	    if (!postWaitAction) {
+			int i;
+			bool objectFound = false;
+			for (i = 0; i < turtlebot_inputs.ranges.length; i++) {
+				if (turtlebot_inputs.ranges[i] < 0.5) {
+					if (!waiting) {
+						waiting = true;
+						waitTime = 0;
+						*vel = 0.0;
+						*ang_vel = 0.0;
+						*soundValue = 2;
+					}
+					objectFound = true;
+					i = turtlebot_inputs.ranges.length;
+				}
+				if (waiting && !objectFound) {
+					waiting = false;
+					waitTime = 0;
+					postWaitAction = true;
+				}
+			}
+		}
+		
+		if (waiting) {
+			*vel = 0.0;
+			*ang_vel = 0.0;
+			waitTime++;
+			if (waitTime > 1500) {
+				waiting = false;
+				waitTime = 0;
+				postWaitAction = true;
+			}
+		} else if (postWaitAction) {
+			*vel = 0.0;
+			*ang_vel = 0.3;
+			for (i = 0; i < turtlebot_inputs.ranges.length; i++) {
+				if (turtlebot_inputs.ranges[i] < 0.5) {
+					objectFound = true;
+					i = turtlebot_inputs.ranges.length;
+				}
+				if (!objectFound) {
+					postWaitAction = false;
+				}
+			}
+		}
+		
+		// Backing Up Condition
 	    if (backingUp) {
 			*vel = -0.1;
 			*ang_vel = 0;
