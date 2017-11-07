@@ -28,48 +28,49 @@ void turtlebot_controller(turtlebotInputs turtlebot_inputs, uint8_t *soundValue,
 	    // Sensor Condition
 	    if (ignoreBumper == false) {
 		    if (turtlebot_inputs.leftBumperPressed == 1) {
-			backingUp = true;
-			ignoreBumper = true;
-			turnDirection = -1;
+				backingUp = true;
+				ignoreBumper = true;
+				turnDirection = -1;
 		    }
 		    // Sensor Condition
 		    if (turtlebot_inputs.rightBumperPressed == 1 || turtlebot_inputs.centerBumperPressed == 1) {
-			backingUp = true;
-			ignoreBumper = true;
-			turnDirection = 1;
+				backingUp = true;
+				ignoreBumper = true;
+				turnDirection = 1;
 		    }
 	    }
 
 	    // Backing Up Condition
 	    if (backingUp) {
-		*vel = -0.1;
-		*ang_vel = 0;
-		actionCounter++;
+			*vel = -0.1;
+			*ang_vel = 0;
+			actionCounter++;
 
-		if(actionCounter >= 30) {
-		    backingUp = false;
-		    actionCounter = 0;
-		    turning = true;
-		}
+			if(actionCounter >= 30) {
+				backingUp = false;
+				actionCounter = 0;
+				turning = true;
+			}
 	    }
 
 	    // Turning Condition
 	    if (turning) {
-		*ang_vel = 0.3 * turnDirection;
-		*vel = 0;
-		actionCounter++;
+			*ang_vel = 0.3 * turnDirection;
+			*vel = 0;
+			actionCounter++;
 
-		if (actionCounter >= 30) {
-		    turning = false;
-		    ignoreBumper = false;
-		    actionCounter = 0;
-		}
+			if (actionCounter >= 30) {
+				turning = false;
+				ignoreBumper = false;
+				actionCounter = 0;
+			}
 	    }
 	}
 	else {
-	*vel = 0.0; // Robot forward velocity in m/s
-	*ang_vel = 0.0;  // Robot angular velocity in rad/s
-	// Reeee agressively
-	*soundValue = 4;
+		*vel = 0.0; // Robot forward velocity in m/s
+		*ang_vel = 0.0;  // Robot angular velocity in rad/s
+		// Reeee agressively
+		*soundValue = 4;
+	}
 }
 
