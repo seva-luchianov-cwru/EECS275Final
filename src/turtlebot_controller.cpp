@@ -46,9 +46,14 @@ void turtlebot_controller(turtlebotInputs turtlebot_inputs, uint8_t *soundValue,
 	    if (!postWaitAction) {
 			int i;
 			bool objectFound = false;
-			for (i = 0; i < turtlebot_inputs.ranges.length; i++) {
-				if (turtlebot_inputs.ranges[i] < 0.5) {
+			for (i = 0; i < turtlebot_inputs.numPoints; i++) {
+				float triggerDistance = 0.5;
+				if (waiting) {
+					triggerDistance += 0.1;
+				}
+				if (turtlebot_inputs.ranges[i] < triggerDistance) {
 					if (!waiting) {
+						ROS_INFO("oh shit stop"); 
 						waiting = true;
 						waitTime = 0;
 						*vel = 0.0;
@@ -56,36 +61,47 @@ void turtlebot_controller(turtlebotInputs turtlebot_inputs, uint8_t *soundValue,
 						*soundValue = 2;
 					}
 					objectFound = true;
-					i = turtlebot_inputs.ranges.length;
+					i = turtlebot_inputs.numPoints;
 				}
-				if (waiting && !objectFound) {
-					waiting = false;
-					waitTime = 0;
-					postWaitAction = true;
-				}
+			}
+			if (waiting && !objectFound) {
+				ROS_INFO("object moved away"); 
+				waiting = false;
+				waitTime = 0;
+				postWaitAction = true;
 			}
 		}
 		
 		if (waiting) {
+			ROS_INFO("waiting rn %u", waitTime); 
 			*vel = 0.0;
 			*ang_vel = 0.0;
 			waitTime++;
-			if (waitTime > 1500) {
+			if (waitTime > 150) {
+				ROS_INFO("done waiting"); 
 				waiting = false;
 				waitTime = 0;
 				postWaitAction = true;
 			}
 		} else if (postWaitAction) {
+			ROS_INFO("postWaitAction"); 
 			*vel = 0.0;
 			*ang_vel = 0.3;
-			for (i = 0; i < turtlebot_inputs.ranges.length; i++) {
-				if (turtlebot_inputs.ranges[i] < 0.5) {
+			bool objectFound = false;
+			int i;
+			for (i = 0; i < turtlebot_inputs.numPoints; i++) {
+				float triggerDistance = 0.5;
+				if (postWaitAction) {
+					triggerDistance += 0.1;
+				}
+				if (turtlebot_inputs.ranges[i] < triggerDistance) {
 					objectFound = true;
-					i = turtlebot_inputs.ranges.length;
+					i = turtlebot_inputs.numPoints;
 				}
-				if (!objectFound) {
-					postWaitAction = false;
-				}
+			}
+			if (!objectFound) {
+				ROS_INFO("done post waiting"); 
+				postWaitAction = false;
 			}
 		}
 		
