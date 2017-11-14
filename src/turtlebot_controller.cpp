@@ -22,9 +22,9 @@ void turtlebot_controller(turtlebotInputs turtlebot_inputs, uint8_t *soundValue,
 		*soundValue = 4;
 	}
 	if (!fullStop) {
-		ROS_INFO("X %f", turtlebot_inputs.x);
-		ROS_INFO("Y %f", turtlebot_inputs.y);
-		ROS_INFO("Y %f", turtlebot_inputs.z_angle);
+		//ROS_INFO("X %f", turtlebot_inputs.x);
+		//ROS_INFO("Y %f", turtlebot_inputs.y);
+		//ROS_INFO("Y %f", turtlebot_inputs.z_angle);
 	    *vel = 0.1; // Robot forward velocity in m/s
 	    *ang_vel = 0.0;  // Robot angular velocity in rad/s
 
@@ -46,7 +46,7 @@ void turtlebot_controller(turtlebotInputs turtlebot_inputs, uint8_t *soundValue,
 	    }
 	    
 	    if (!postWaitAction) {
-			int i;ROS_INFO("Obstacle detected");
+			int i;
 			bool objectFound = false;
 			for (i = 0; i < turtlebot_inputs.numPoints; i++) {
 				float triggerDistance = 0.5;

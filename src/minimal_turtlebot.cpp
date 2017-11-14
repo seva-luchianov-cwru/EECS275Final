@@ -12,9 +12,8 @@ uint8_t soundValueUpdateCounter = 0;
   
 turtlebotInputs localTurtleBotInputs; 
 
-void odomCallback(const geometry_msgs::PoseWithCovarianceStamped& pose) 
+void odomCallback(const nav_msgs::Odometry& pose) 
 { 
-	
 	localTurtleBotInputs.x = pose.pose.pose.position.x; 
 	localTurtleBotInputs.y = pose.pose.pose.position.y; 
 	localTurtleBotInputs.z_angle = pose.pose.pose.orientation.z; 
@@ -25,7 +24,6 @@ void odomCallback(const geometry_msgs::PoseWithCovarianceStamped& pose)
 
 void coreCallback(const kobuki_msgs::SensorState& sensor_state) 
 { 
-	
 	localTurtleBotInputs.battVoltage = sensor_state.battery; 
 	localTurtleBotInputs.battVoltage = localTurtleBotInputs.battVoltage*0.1; 
 	
@@ -33,7 +31,6 @@ void coreCallback(const kobuki_msgs::SensorState& sensor_state)
 }  
 void imuCallback(const sensor_msgs::Imu& imu_data) 
 { 
-	
 	localTurtleBotInputs.linearAccelX = imu_data.linear_acceleration.x; 
 	localTurtleBotInputs.linearAccelY = imu_data.linear_acceleration.y; 
 	localTurtleBotInputs.linearAccelZ = imu_data.linear_acceleration.z; 
@@ -50,12 +47,14 @@ void imuCallback(const sensor_msgs::Imu& imu_data)
 
 void scanCallback(const sensor_msgs::LaserScan& scan_data) 
 { 
-	
-	localTurtleBotInputs.ranges=scan_data.ranges; 
+
+	for(int indx=0; indx < 640; indx++) {
+	  localTurtleBotInputs.ranges[indx] = scan_data.ranges[indx];
+	}
 	localTurtleBotInputs.minAngle=scan_data.angle_min; 
 	localTurtleBotInputs.maxAngle=scan_data.angle_max; 
 	localTurtleBotInputs.angleIncrement=scan_data.angle_increment; 
-	localTurtleBotInputs.numPoints=localTurtleBotInputs.ranges.size(); 
+	localTurtleBotInputs.numPoints=640;
 	//ROS_INFO("number scan points is: %i",localTurtleBotInputs.numPoints); 
 	
 } 
@@ -158,7 +157,8 @@ void bumperMessageCallback(const kobuki_msgs::BumperEvent& bumper_data_holder)
 } 
 
 int main(int argc, char **argv) 
-{ 
+{
+
   ros::init(argc,argv,"my_minimal_subscriber"); //name this node 
   // when this compiled code is run, ROS will recognize it as a node called "minimal_subscriber" 
   ros::NodeHandle n; // need this to establish communications with our new node 
@@ -174,7 +174,7 @@ int main(int argc, char **argv)
   ros::Subscriber my_cliff_subscription= n.subscribe("mobile_base/events/cliff",1,cliffCallback); 
   ros::Subscriber my_imu_subscription= n.subscribe("mobile_base/sensors/imu_data_raw",1,imuCallback); 
   ros::Subscriber my_core_subscription= n.subscribe("mobile_base/sensors/core",1,coreCallback); 
-  ros::Subscriber my_odom_subscription= n.subscribe("odom_combined",1,odomCallback); 
+  ros::Subscriber my_odom_subscription= n.subscribe("odom",10,odomCallback); 
   
   //We don't need color image or depth images for this semester, let's just look at laser scan topics
   //ros::Subscriber colorImageSubscription= n.subscribe("camera/rgb/image_rect_color",1,colorImageCallback); 
