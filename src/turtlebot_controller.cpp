@@ -32,8 +32,8 @@ float startDirection = 0;
 bool fullStop = false;
 
 // goalLocationCoords
-int xGoal = 1;
-int yGoal = 1;
+float xGoal = 2.0;
+float yGoal = -2.0;
 
 bool testing = false;
 
@@ -41,13 +41,17 @@ void turtlebot_controller(turtlebotInputs turtlebot_inputs, uint8_t *soundValue,
 	// The Robots direction from 0 - 180 degrees (in radians)
 	float theta = atan2(2.0*(turtlebot_inputs.z_angle*turtlebot_inputs.orientation_omega),(-(turtlebot_inputs.z_angle*turtlebot_inputs.z_angle) + (turtlebot_inputs.orientation_omega*turtlebot_inputs.orientation_omega)));
 	if (theta < 0) {
-		theta = 2 * 3.14159265358979323846264338327950288 + theta;
+		//theta = 2 * 3.14159265358979323846264338327950288 + theta;
 	}
 	float thetaGoal = atan((yGoal - turtlebot_inputs.y) / (xGoal - turtlebot_inputs.x));
 	if ((xGoal - turtlebot_inputs.x) < 0) {
-		thetaGoal = 3.14159265358979323846264338327950288 + thetaGoal;
+		if ((yGoal - turtlebot_inputs.y) < 0) {
+			thetaGoal = thetaGoal - 3.14159;
+		}
+		else {
+			thetaGoal = thetaGoal + 3.14159;
+		}
 	}
-	float steering = thetaGoal - theta;
 
 	if (testing) {
 		//*vel = 0.1;
@@ -70,41 +74,59 @@ void turtlebot_controller(turtlebotInputs turtlebot_inputs, uint8_t *soundValue,
 		}
 		if (!fullStop) {
 			if (initializeNavigation) {
-				ROS_INFO("steering %f", steering);
 				//*vel = 0.1;
-				if (steering > 0.1) {
-					*ang_vel = -0.2;
+				if (!(rightTrigger || leftTrigger) && theta > thetaGoal) {
+					ROS_INFO("Time to turnLeft: %f, %f", theta, thetaGoal);
 					leftTrigger = true;
-				}
-				else if (steering < -0.1) {
-					*ang_vel = 0.2;
-					rightTrigger = true;
-				}
-				if (leftTrigger && rightTrigger) {
-					ROS_INFO("Facing Towards Objective: %f", steering);
-					*ang_vel = 0.0;
-					initializeNavigation = false;
-					leftTrigger = false;
 					rightTrigger = false;
+					*ang_vel = -0.2;
+				}
+				if (!(rightTrigger || leftTrigger) && theta < thetaGoal) {
+					ROS_INFO("Time to turnRight: %f, %f", theta, thetaGoal);
+					rightTrigger = true;
+					leftTrigger = false;
+					*ang_vel = 0.2;
+				}
+				if (leftTrigger) {
+					if (theta <= thetaGoal) {
+						ROS_INFO("Facing Towards Objective: leftTurn %f, %f", theta, thetaGoal);
+						*ang_vel = 0.0;
+						initializeNavigation = false;
+						leftTrigger = false;
+						rightTrigger = false;
+					}
+				}
+				if (rightTrigger) {
+					if (theta >= thetaGoal) {
+						ROS_INFO("Facing Towards Objective: rightTurn %f, %f", theta, thetaGoal);
+						*ang_vel = 0.0;
+						initializeNavigation = false;
+						leftTrigger = false;
+						rightTrigger = false;
+					}
 				}
 			}
 			else {
-				if (!arrivalRitual && (abs(xGoal - turtlebot_inputs.x) < 0.2 && abs(yGoal - turtlebot_inputs.y) < 0.2)) {
-					ROS_INFO("Arrived At Objective: (%f, %f)", turtlebot_inputs.x, turtlebot_inputs.y);
+				float goalDist = pow(pow(xGoal - turtlebot_inputs.x, 2) + pow(yGoal - turtlebot_inputs.y, 2), 0.5);
+				if (!arrivalRitual && (goalDist < 0.2)) {
+					ROS_INFO("Arrived At Objective: (%f)", goalDist);
 					arrivalRitual = true;
 					startDirection = theta;
 				}
 
 				if (arrivalRitual) {
-					*ang_vel = -0.2;
+					*vel = 0.0;
+					*ang_vel = -0.5;
 					if (spins < 4) {
 						incrementDelay--;
-						if (incrementDelay <= 0 && abs(startDirection - theta) < 0.2) {
+						if (incrementDelay <= 0 && pow(pow(startDirection - theta, 2), 0.5) < 0.2) {
+							ROS_INFO("Spins: %i", spins);
 							incrementDelay = 100;
 							spins++;
 						}
 					}
 					else {
+						ROS_INFO("DONE: (%f, %f)", turtlebot_inputs.x, turtlebot_inputs.y);
 						arrivalRitual = false;
 						fullStop = true;
 					}
@@ -130,16 +152,18 @@ void turtlebot_controller(turtlebotInputs turtlebot_inputs, uint8_t *soundValue,
 							ROS_INFO("Left Bumper Hit");
 							backingUp = true;
 							ignoreBumper = true;
-							turnDirection = -1;
+							turnDirection = 1;
 							actionCounter = 0;
+							postTurnMinDrive = false;
 						}
 						// Right Bumper
 						if (turtlebot_inputs.sensor2State == 1 || turtlebot_inputs.rightBumperPressed == 1) {
 							ROS_INFO("Right Bumper Hit");
 							backingUp = true;
 							ignoreBumper = true;
-							turnDirection = 1;
+							turnDirection = -1;
 							actionCounter = 0;
+							postTurnMinDrive = false;
 						}
 						// Center Bumper
 						if (turtlebot_inputs.sensor1State == 1 || turtlebot_inputs.centerBumperPressed == 1) {
@@ -147,20 +171,26 @@ void turtlebot_controller(turtlebotInputs turtlebot_inputs, uint8_t *soundValue,
 							for (i = 1; i < turtlebot_inputs.numPoints/2; i++) {
 								float leftReading = turtlebot_inputs.ranges[turtlebot_inputs.numPoints/2 - i];
 								float rightReading = turtlebot_inputs.ranges[turtlebot_inputs.numPoints/2 + i];
-								if (abs(leftReading - rightReading) > 0.1) {
+								if (pow(pow(leftReading - rightReading, 2), 0.5) > 0.1) {
 									if (leftReading > rightReading) {
 										turnDirection = 1;
+										i = turtlebot_inputs.numPoints/2;
 										ROS_INFO("Center Bumper Hit, Turning Right");
 									} else {
 										turnDirection = -1;
+										i = turtlebot_inputs.numPoints/2;
 										ROS_INFO("Center Bumper Hit, Turning Left");
 									}
-									backingUp = true;
-									ignoreBumper = true;
-									i = turtlebot_inputs.numPoints/2;
-									actionCounter = 0;
 								}
 							}
+							if (turnDirection == 0) {
+								ROS_INFO("No Best Direction, Turning Right");
+								turnDirection = 1;
+							}
+							actionCounter = 0;
+							ignoreBumper = true;
+							backingUp = true;
+							postTurnMinDrive = false;
 						}
 					}
 					
@@ -234,38 +264,34 @@ void turtlebot_controller(turtlebotInputs turtlebot_inputs, uint8_t *soundValue,
 						actionCounter++;
 
 						if (actionCounter >= 30) {
-							ROS_INFO("Done Reversing, Start Turn");
+							ROS_INFO("Done Reversing, Start Turn: %i", turnDirection);
 							backingUp = false;
 							actionCounter = 0;
 							turningPhase1 = true;
-							turningPhase2 = false;
-							goalTurnTheta = theta + (turnDirection*(3.14159/2));
-							if (goalTurnTheta > 2 * 3.14159) {
-								goalTurnTheta = 2 * 3.14159 - goalTurnTheta;
+							goalTurnTheta = theta - (turnDirection*(3.14159/2));
+							ROS_INFO("Raw goal angle %f", goalTurnTheta);
+							if (goalTurnTheta > 3.14159) {
+								goalTurnTheta = goalTurnTheta - 2 * 3.14159;
 							}
-							if (goalTurnTheta < 0) {
-								goalTurnTheta = 2 * 3.14159 + goalTurnTheta;
+							if (goalTurnTheta < -3.14159) {
+								goalTurnTheta = goalTurnTheta + 2 * 3.14159;
 							}
+							ROS_INFO("cur heading: %f", theta);
+							ROS_INFO("goal heading: %f", goalTurnTheta);
 						}
 					}
 					
 					// turningPhase Condition
 					if (turningPhase1) {
-						*ang_vel = 0.2 * turnDirection;
+						*ang_vel = 0.2 * -turnDirection;
 						*vel = 0;
 
 						incrementDelay--;
-						if (incrementDelay <= 0 && abs(goalTurnTheta - theta) < 0.15) {
+						if (incrementDelay <= 0 && pow(pow(goalTurnTheta - theta, 2), 0.5) < 0.15) {
 							ROS_INFO("Done Turning, Start Short Drive");
-							incrementDelay = 100;
+							incrementDelay = 20;
 							turningPhase1 = false;
-							goalTurnTheta = theta + (turnDirection*(3.14159/2));
-							if (goalTurnTheta > 2 * 3.14159) {
-								goalTurnTheta = 2 * 3.14159 - goalTurnTheta;
-							}
-							if (goalTurnTheta < 0) {
-								goalTurnTheta = 2 * 3.14159 + goalTurnTheta;
-							}
+							turnDrive = true;
 							actionCounter = 0;
 						}
 					}
@@ -275,32 +301,37 @@ void turtlebot_controller(turtlebotInputs turtlebot_inputs, uint8_t *soundValue,
 						*ang_vel = 0;
 						actionCounter++;
 
-						if (actionCounter >= 10) {
+						if (actionCounter >= 25) {
 							ROS_INFO("Done Driving, Start Turn Back");
 							turnDrive = false;
 							actionCounter = 0;
 							turningPhase2 = true;
-							goalTurnTheta = theta - (turnDirection*(3.14159/2));
-							if (goalTurnTheta > 2 * 3.14159) {
-								goalTurnTheta = 2 * 3.14159 - goalTurnTheta;
+							goalTurnTheta = theta + (turnDirection*(3.14159/2));
+							if (goalTurnTheta > 3.14159) {
+								goalTurnTheta = goalTurnTheta - 2 * 3.14159;
 							}
-							if (goalTurnTheta < 0) {
-								goalTurnTheta = 2 * 3.14159 + goalTurnTheta;
+							if (goalTurnTheta < -3.14159) {
+								goalTurnTheta = goalTurnTheta + 2 * 3.14159;
 							}
+							ROS_INFO("cur heading: %f", theta);
+							ROS_INFO("goal heading: %f", goalTurnTheta);
 						}
 					}
 
 					// turningPhase Condition
 					if (turningPhase2) {
-						*ang_vel = 0.2 * -turnDirection;
+						*ang_vel = 0.2 * turnDirection;
 						*vel = 0;
 
 						incrementDelay--;
-						if (incrementDelay <= 0 && abs(goalTurnTheta - theta) < 0.15) {
+						ROS_INFO("heading: %i => %f", incrementDelay, pow(pow(goalTurnTheta - theta, 2), 0.5));
+						if (incrementDelay <= 0 && pow(pow(goalTurnTheta - theta, 2), 0.5) < 0.15) {
 							ROS_INFO("Done Turning, Continue Forward");
-							incrementDelay = 100;
+							incrementDelay = 20;
 							turningPhase2 = false;
 							postTurnMinDrive = true;
+							ignoreBumper = false;
+							turnDirection = 0;
 							actionCounter = 0;
 						}
 					}
