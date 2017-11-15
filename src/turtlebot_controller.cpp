@@ -167,30 +167,11 @@ void turtlebot_controller(turtlebotInputs turtlebot_inputs, uint8_t *soundValue,
 						}
 						// Center Bumper
 						if (turtlebot_inputs.sensor1State == 1 || turtlebot_inputs.centerBumperPressed == 1) {
-							int i;
-							for (i = 1; i < turtlebot_inputs.numPoints/2; i++) {
-								float leftReading = turtlebot_inputs.ranges[turtlebot_inputs.numPoints/2 - i];
-								float rightReading = turtlebot_inputs.ranges[turtlebot_inputs.numPoints/2 + i];
-								if (pow(pow(leftReading - rightReading, 2), 0.5) > 0.1) {
-									if (leftReading > rightReading) {
-										turnDirection = 1;
-										i = turtlebot_inputs.numPoints/2;
-										ROS_INFO("Center Bumper Hit, Turning Right");
-									} else {
-										turnDirection = -1;
-										i = turtlebot_inputs.numPoints/2;
-										ROS_INFO("Center Bumper Hit, Turning Left");
-									}
-								}
-							}
-							if (turnDirection == 0) {
-								ROS_INFO("No Best Direction, Turning Right");
-								turnDirection = 1;
-							}
 							actionCounter = 0;
 							ignoreBumper = true;
 							backingUp = true;
 							postTurnMinDrive = false;
+							turnDirection = 0;
 						}
 					}
 					
@@ -265,6 +246,42 @@ void turtlebot_controller(turtlebotInputs turtlebot_inputs, uint8_t *soundValue,
 
 						if (actionCounter >= 30) {
 							ROS_INFO("Done Reversing, Start Turn: %i", turnDirection);
+							if (turnDirection == 0) {
+								int sequentialLeftNaN = 0;
+								int sequentialRightNaN = 0;
+								int i;
+								for (i = 1; i < turtlebot_inputs.numPoints/2; i++) {
+									int leftReadingIndex = turtlebot_inputs.numPoints/2 + i;
+									int rightReadingIndex = turtlebot_inputs.numPoints/2 - i;
+									float leftReading = turtlebot_inputs.ranges[leftReadingIndex];
+									float rightReading = turtlebot_inputs.ranges[rightReadingIndex];
+									if (isnan(leftReading) && !isnan(rightReading)) {
+										sequentialLeftNaN++;
+									}
+									else {
+										sequentialLeftNaN = 0;
+									}
+									if (isnan(rightReading) && !isnan(leftReading)) {
+										sequentialRightNaN++;
+									}
+									else {
+										sequentialRightNaN = 0;
+									}
+									ROS_INFO("[%i: %f] | [%i: %f]", leftReadingIndex, leftReading, rightReadingIndex, rightReading);
+									float valDifference = pow(pow(leftReading - rightReading, 2), 0.5) > 0.1;
+									if (sequentialRightNaN > 10 || (valDifference > 0.1 && leftReading < rightReading)) {
+										turnDirection = 1;
+										i = turtlebot_inputs.numPoints/2;
+										ROS_INFO("Center Bumper Hit, Turning Right");
+									}
+									if (sequentialLeftNaN > 10 || (valDifference > 0.1 && leftReading > rightReading)) {
+										turnDirection = -1;
+										i = turtlebot_inputs.numPoints/2;
+										ROS_INFO("Center Bumper Hit, Turning Left");
+									}
+								}
+							}
+
 							backingUp = false;
 							actionCounter = 0;
 							turningPhase1 = true;
