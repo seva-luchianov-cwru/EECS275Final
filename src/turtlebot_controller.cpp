@@ -1,6 +1,8 @@
 #include "minimal_turtlebot/turtlebot_controller.h"
 #include <math.h>
 
+bool doingBumperStuff = false;
+
 bool backingUp = false;
 
 bool turningPhase1 = false;
@@ -74,7 +76,7 @@ void turtlebot_controller(turtlebotInputs turtlebot_inputs, uint8_t *soundValue,
 		}
 		if (!fullStop) {
 			if (initializeNavigation) {
-				//*vel = 0.1;
+				*vel = 0.0;
 				if (!(rightTrigger || leftTrigger) && theta > thetaGoal) {
 					ROS_INFO("Time to turnLeft: %f, %f", theta, thetaGoal);
 					leftTrigger = true;
@@ -131,17 +133,6 @@ void turtlebot_controller(turtlebotInputs turtlebot_inputs, uint8_t *soundValue,
 						fullStop = true;
 					}
 				} else {
-					if (!backingUp && postTurnMinDrive) {
-						actionCounter++;
-
-						if(actionCounter >= 40) {
-							ROS_INFO("Obsticale Cleared");
-							postTurnMinDrive = false;
-							actionCounter = 0;
-							initializeNavigation = true;
-						}
-					}
-
 					*vel = 0.1; // Robot forward velocity in m/s
 					*ang_vel = 0.0;  // Robot angular velocity in rad/s
 
@@ -155,6 +146,7 @@ void turtlebot_controller(turtlebotInputs turtlebot_inputs, uint8_t *soundValue,
 							turnDirection = 1;
 							actionCounter = 0;
 							postTurnMinDrive = false;
+							doingBumperStuff = true;
 						}
 						// Right Bumper
 						if (turtlebot_inputs.sensor2State == 1 || turtlebot_inputs.rightBumperPressed == 1) {
@@ -164,6 +156,7 @@ void turtlebot_controller(turtlebotInputs turtlebot_inputs, uint8_t *soundValue,
 							turnDirection = -1;
 							actionCounter = 0;
 							postTurnMinDrive = false;
+							doingBumperStuff = true;
 						}
 						// Center Bumper
 						if (turtlebot_inputs.sensor1State == 1 || turtlebot_inputs.centerBumperPressed == 1) {
@@ -172,185 +165,272 @@ void turtlebot_controller(turtlebotInputs turtlebot_inputs, uint8_t *soundValue,
 							backingUp = true;
 							postTurnMinDrive = false;
 							turnDirection = 0;
+							doingBumperStuff = true;
 						}
 					}
-					
-					/*if (!postWaitAction) {
-						int i;
-						bool objectFound = false;
-						for (i = 0; i < turtlebot_inputs.numPoints; i++) {
-							float triggerDistance = 0.5;
-							if (waiting) {
-								triggerDistance += 0.1;
-							}
-							if (turtlebot_inputs.ranges[i] < triggerDistance) {
-								if (!waiting) {
-									ROS_INFO("Obstacle detected");
-									waiting = true;
-									waitTime = 0;
-									*vel = 0.0;
-									*ang_vel = 0.0;
-									*soundValue = 2;
-								}
-								objectFound = true;
-								i = turtlebot_inputs.numPoints;
-							}
-						}
-						if (waiting && !objectFound) {
-							ROS_INFO("Obstacle moved away");
-							waiting = false;
-							waitTime = 0;
-							postWaitAction = true;
-						}
-					}
+					if (doingBumperStuff) {
+						if (!backingUp && postTurnMinDrive) {
+							actionCounter++;
 
-					if (waiting) {
-						if (waitTime % 10 == 0) {
-							ROS_INFO("Waiting for %u seconds", (15 - (waitTime / 10))); 
-						}
-						*vel = 0.0;
-						*ang_vel = 0.0;
-						waitTime++;
-						if (waitTime > 150) {
-							ROS_INFO("done waiting");
-							waiting = false;
-							waitTime = 0;
-							postWaitAction = true;
-						}
-					} else if (postWaitAction) {
-						*vel = 0.0;
-						*ang_vel = 0.3;
-						bool objectFound = false;
-						int i;
-						for (i = 0; i < turtlebot_inputs.numPoints; i++) {
-							float triggerDistance = 0.5;
-							if (postWaitAction) {
-								triggerDistance += 0.1;
-							}
-							if (turtlebot_inputs.ranges[i] < triggerDistance) {
-								objectFound = true;
-								i = turtlebot_inputs.numPoints;
+							if(actionCounter >= 40) {
+								ROS_INFO("Obsticale Cleared");
+								postTurnMinDrive = false;
+								actionCounter = 0;
+								initializeNavigation = true;
 							}
 						}
-						if (!objectFound) {
-							ROS_INFO("Preceeding Forward");
-							postWaitAction = false;
-						}
-					}*/
 
-					// Backing Up Condition
-					if (backingUp) {
-						*vel = -0.1;
-						*ang_vel = 0;
-						actionCounter++;
+						// Backing Up Condition
+						if (backingUp) {
+							*vel = -0.1;
+							*ang_vel = 0;
+							actionCounter++;
 
-						if (actionCounter >= 30) {
-							ROS_INFO("Done Reversing, Start Turn: %i", turnDirection);
-							if (turnDirection == 0) {
-								int sequentialLeftNaN = 0;
-								int sequentialRightNaN = 0;
-								int i;
-								for (i = 1; i < turtlebot_inputs.numPoints/2; i++) {
-									int leftReadingIndex = turtlebot_inputs.numPoints/2 + i;
-									int rightReadingIndex = turtlebot_inputs.numPoints/2 - i;
-									float leftReading = turtlebot_inputs.ranges[leftReadingIndex];
-									float rightReading = turtlebot_inputs.ranges[rightReadingIndex];
-									if (isnan(leftReading) && !isnan(rightReading)) {
-										sequentialLeftNaN++;
-									}
-									else {
-										sequentialLeftNaN = 0;
-									}
-									if (isnan(rightReading) && !isnan(leftReading)) {
-										sequentialRightNaN++;
-									}
-									else {
-										sequentialRightNaN = 0;
-									}
-									ROS_INFO("[%i: %f] | [%i: %f]", leftReadingIndex, leftReading, rightReadingIndex, rightReading);
-									float valDifference = pow(pow(leftReading - rightReading, 2), 0.5) > 0.1;
-									if (sequentialRightNaN > 10 || (valDifference > 0.1 && leftReading < rightReading)) {
-										turnDirection = 1;
-										i = turtlebot_inputs.numPoints/2;
-										ROS_INFO("Center Bumper Hit, Turning Right");
-									}
-									if (sequentialLeftNaN > 10 || (valDifference > 0.1 && leftReading > rightReading)) {
-										turnDirection = -1;
-										i = turtlebot_inputs.numPoints/2;
-										ROS_INFO("Center Bumper Hit, Turning Left");
+							if (actionCounter >= 30) {
+								ROS_INFO("Done Reversing, Start Turn: %i", turnDirection);
+								if (turnDirection == 0) {
+									int sequentialLeftNaN = 0;
+									int sequentialRightNaN = 0;
+									int i;
+									for (i = 1; i < turtlebot_inputs.numPoints/2; i++) {
+										int leftReadingIndex = turtlebot_inputs.numPoints/2 + i;
+										int rightReadingIndex = turtlebot_inputs.numPoints/2 - i;
+										float leftReading = turtlebot_inputs.ranges[leftReadingIndex];
+										float rightReading = turtlebot_inputs.ranges[rightReadingIndex];
+										if (isnan(leftReading) && !isnan(rightReading)) {
+											sequentialLeftNaN++;
+										}
+										else {
+											sequentialLeftNaN = 0;
+										}
+										if (isnan(rightReading) && !isnan(leftReading)) {
+											sequentialRightNaN++;
+										}
+										else {
+											sequentialRightNaN = 0;
+										}
+										// ROS_INFO("[%i: %f] | [%i: %f]", leftReadingIndex, leftReading, rightReadingIndex, rightReading);
+										float valDifference = pow(pow(leftReading - rightReading, 2), 0.5);
+										if (sequentialRightNaN > 10 || (valDifference > 0.1 && leftReading < rightReading)) {
+											turnDirection = 1;
+											i = turtlebot_inputs.numPoints/2;
+											ROS_INFO("Center Bumper Hit, Turning Right");
+										}
+										if (sequentialLeftNaN > 10 || (valDifference > 0.1 && leftReading > rightReading)) {
+											turnDirection = -1;
+											i = turtlebot_inputs.numPoints/2;
+											ROS_INFO("Center Bumper Hit, Turning Left");
+										}
 									}
 								}
-							}
+								
+								if (turnDirection == 0) {
+									turnDirection = 1;
+								}
 
-							backingUp = false;
-							actionCounter = 0;
-							turningPhase1 = true;
-							goalTurnTheta = theta - (turnDirection*(3.14159/2));
-							ROS_INFO("Raw goal angle %f", goalTurnTheta);
-							if (goalTurnTheta > 3.14159) {
-								goalTurnTheta = goalTurnTheta - 2 * 3.14159;
+								backingUp = false;
+								actionCounter = 0;
+								turningPhase1 = true;
+								goalTurnTheta = theta - (turnDirection*(3.14159/2));
+								ROS_INFO("Raw goal angle %f", goalTurnTheta);
+								if (goalTurnTheta > 3.14159) {
+									goalTurnTheta = goalTurnTheta - 2 * 3.14159;
+								}
+								if (goalTurnTheta < -3.14159) {
+									goalTurnTheta = goalTurnTheta + 2 * 3.14159;
+								}
+								ROS_INFO("cur heading: %f", theta);
+								ROS_INFO("goal heading: %f", goalTurnTheta);
 							}
-							if (goalTurnTheta < -3.14159) {
-								goalTurnTheta = goalTurnTheta + 2 * 3.14159;
+						}
+						
+						// turningPhase Condition
+						if (turningPhase1) {
+							*ang_vel = 0.2 * -turnDirection;
+							*vel = 0;
+
+							incrementDelay--;
+							if (incrementDelay <= 0 && pow(pow(goalTurnTheta - theta, 2), 0.5) < 0.15) {
+								ROS_INFO("Done Turning, Start Short Drive");
+								incrementDelay = 20;
+								turningPhase1 = false;
+								turnDrive = true;
+								actionCounter = 0;
 							}
-							ROS_INFO("cur heading: %f", theta);
-							ROS_INFO("goal heading: %f", goalTurnTheta);
+						}
+						
+						if (turnDrive) {
+							*vel = 0.1;
+							*ang_vel = 0;
+							actionCounter++;
+
+							if (actionCounter >= 25) {
+								ROS_INFO("Done Driving, Start Turn Back");
+								turnDrive = false;
+								actionCounter = 0;
+								turningPhase2 = true;
+								goalTurnTheta = theta + (turnDirection*(3.14159/2));
+								if (goalTurnTheta > 3.14159) {
+									goalTurnTheta = goalTurnTheta - 2 * 3.14159;
+								}
+								if (goalTurnTheta < -3.14159) {
+									goalTurnTheta = goalTurnTheta + 2 * 3.14159;
+								}
+								ROS_INFO("cur heading: %f", theta);
+								ROS_INFO("goal heading: %f", goalTurnTheta);
+							}
+						}
+
+						// turningPhase Condition
+						if (turningPhase2) {
+							*ang_vel = 0.2 * turnDirection;
+							*vel = 0;
+
+							incrementDelay--;
+							if (incrementDelay <= 0 && pow(pow(goalTurnTheta - theta, 2), 0.5) < 0.15) {
+								ROS_INFO("Done Turning, Continue Forward");
+								incrementDelay = 20;
+								turningPhase2 = false;
+								postTurnMinDrive = true;
+								ignoreBumper = false;
+								doingBumperStuff = false;
+								turnDirection = 0;
+								actionCounter = 0;
+							}
 						}
 					}
-					
-					// turningPhase Condition
-					if (turningPhase1) {
-						*ang_vel = 0.2 * -turnDirection;
-						*vel = 0;
-
-						incrementDelay--;
-						if (incrementDelay <= 0 && pow(pow(goalTurnTheta - theta, 2), 0.5) < 0.15) {
-							ROS_INFO("Done Turning, Start Short Drive");
-							incrementDelay = 20;
-							turningPhase1 = false;
-							turnDrive = true;
-							actionCounter = 0;
-						}
-					}
-					
-					if (turnDrive) {
-						*vel = 0.1;
-						*ang_vel = 0;
-						actionCounter++;
-
-						if (actionCounter >= 25) {
-							ROS_INFO("Done Driving, Start Turn Back");
-							turnDrive = false;
-							actionCounter = 0;
-							turningPhase2 = true;
-							goalTurnTheta = theta + (turnDirection*(3.14159/2));
-							if (goalTurnTheta > 3.14159) {
-								goalTurnTheta = goalTurnTheta - 2 * 3.14159;
+					// Laser Scan Stuff!!
+					else {
+						int sequentialLeftNaN = 0;
+						int sequentialRightNaN = 0;
+						float totalLeftDistance = 0;
+						float totalRightDistance = 0;
+						float minDistance = 1000;
+						int i;
+						for (i = 1; i < turtlebot_inputs.numPoints/2; i++) {
+							int leftReadingIndex = turtlebot_inputs.numPoints/2 + i;
+							int rightReadingIndex = turtlebot_inputs.numPoints/2 - i;
+							float leftReading = turtlebot_inputs.ranges[leftReadingIndex];
+							float rightReading = turtlebot_inputs.ranges[rightReadingIndex];
+							if (isnan(leftReading) && !isnan(rightReading)) {
+								sequentialLeftNaN++;
 							}
-							if (goalTurnTheta < -3.14159) {
-								goalTurnTheta = goalTurnTheta + 2 * 3.14159;
+							else {
+								sequentialLeftNaN = 0;
 							}
-							ROS_INFO("cur heading: %f", theta);
-							ROS_INFO("goal heading: %f", goalTurnTheta);
+							if (isnan(rightReading) && !isnan(leftReading)) {
+								sequentialRightNaN++;
+							}
+							else {
+								sequentialRightNaN = 0;
+							}
+							
+							// add current iteration to the total Distances
+							if (sequentialLeftNaN > 10) {
+								totalLeftDistance += (10 * i);
+							}
+							else if (!isnan(leftReading)) {
+								totalLeftDistance += (leftReading * i);
+								if (leftReading < minDistance) {
+									minDistance = leftReading;
+								}
+							}
+							if (sequentialRightNaN > 10) {
+								totalRightDistance += (10 * i);
+							}
+							else if (!isnan(rightReading)) {
+								totalRightDistance += (rightReading * i);
+								if (rightReading < minDistance) {
+									minDistance = rightReading;
+								}
+							}
 						}
-					}
-
-					// turningPhase Condition
-					if (turningPhase2) {
-						*ang_vel = 0.2 * turnDirection;
-						*vel = 0;
-
-						incrementDelay--;
-						ROS_INFO("heading: %i => %f", incrementDelay, pow(pow(goalTurnTheta - theta, 2), 0.5));
-						if (incrementDelay <= 0 && pow(pow(goalTurnTheta - theta, 2), 0.5) < 0.15) {
-							ROS_INFO("Done Turning, Continue Forward");
-							incrementDelay = 20;
-							turningPhase2 = false;
-							postTurnMinDrive = true;
-							ignoreBumper = false;
-							turnDirection = 0;
-							actionCounter = 0;
+						
+						// Dynamic Turning
+						float valDifference = totalLeftDistance - totalRightDistance;
+						float angularVelocity = valDifference * 0.000001;
+						if (angularVelocity > 1) {
+							angularVelocity = 1;
 						}
+						if (angularVelocity < -1) {
+							angularVelocity = -1;
+						}
+						
+						// Dynamic Speed
+						if (minDistance > 1) {
+							minDistance = 1;
+						}
+						if (minDistance < 0.2) {
+							minDistance = 0.2;
+						}
+						float speed = (minDistance - 0.2) * 0.1;
+						ROS_INFO("Speed: %f | Turning: %f", speed, angularVelocity);
+						
+						*ang_vel = angularVelocity;
+						*vel = speed;
+						
+						/*if (!postWaitAction) {
+							int i;
+							bool objectFound = false;
+							for (i = 0; i < turtlebot_inputs.numPoints; i++) {
+								float triggerDistance = 0.5;
+								if (waiting) {
+									triggerDistance += 0.1;
+								}
+								if (turtlebot_inputs.ranges[i] < triggerDistance) {
+									if (!waiting) {
+										ROS_INFO("Obstacle detected");
+										waiting = true;
+										waitTime = 0;
+										*vel = 0.0;
+										*ang_vel = 0.0;
+										*soundValue = 2;
+									}
+									objectFound = true;
+									i = turtlebot_inputs.numPoints;
+								}
+							}
+							if (waiting && !objectFound) {
+								ROS_INFO("Obstacle moved away");
+								waiting = false;
+								waitTime = 0;
+								postWaitAction = true;
+							}
+						}*/
+
+						/*if (waiting) {
+							if (waitTime % 10 == 0) {
+								ROS_INFO("Waiting for %u seconds", (15 - (waitTime / 10))); 
+							}
+							*vel = 0.0;
+							*ang_vel = 0.0;
+							waitTime++;
+							if (waitTime > 150) {
+								ROS_INFO("done waiting");
+								waiting = false;
+								waitTime = 0;
+								postWaitAction = true;
+							}
+						} else if (postWaitAction) {
+							*vel = 0.0;
+							*ang_vel = 0.3;
+							bool objectFound = false;
+							int i;
+							for (i = 0; i < turtlebot_inputs.numPoints; i++) {
+								float triggerDistance = 0.5;
+								if (postWaitAction) {
+									triggerDistance += 0.1;
+								}
+								if (turtlebot_inputs.ranges[i] < triggerDistance) {
+									objectFound = true;
+									i = turtlebot_inputs.numPoints;
+								}
+							}
+							if (!objectFound) {
+								ROS_INFO("Preceeding Forward");
+								postWaitAction = false;
+							}
+						}*/
 					}
 				}
 			}
