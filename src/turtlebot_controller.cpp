@@ -177,6 +177,7 @@ void turtlebot_controller(turtlebotInputs turtlebot_inputs, uint8_t *soundValue,
 								postTurnMinDrive = false;
 								actionCounter = 0;
 								initializeNavigation = true;
+								doingBumperStuff = false;
 							}
 						}
 
@@ -293,7 +294,6 @@ void turtlebot_controller(turtlebotInputs turtlebot_inputs, uint8_t *soundValue,
 								turningPhase2 = false;
 								postTurnMinDrive = true;
 								ignoreBumper = false;
-								doingBumperStuff = false;
 								turnDirection = 0;
 								actionCounter = 0;
 							}
@@ -306,6 +306,7 @@ void turtlebot_controller(turtlebotInputs turtlebot_inputs, uint8_t *soundValue,
 						float totalLeftDistance = 0;
 						float totalRightDistance = 0;
 						float minDistance = 1000;
+						float minFrontDistance = 1000;
 						int i;
 						for (i = 1; i < turtlebot_inputs.numPoints/2; i++) {
 							int leftReadingIndex = turtlebot_inputs.numPoints/2 + i;
@@ -334,6 +335,9 @@ void turtlebot_controller(turtlebotInputs turtlebot_inputs, uint8_t *soundValue,
 								if (leftReading < minDistance) {
 									minDistance = leftReading;
 								}
+								if (i < 30 && leftReading < minFrontDistance) {
+									minFrontDistance = leftReading;
+								}
 							}
 							if (sequentialRightNaN > 10) {
 								totalRightDistance += (10 * i);
@@ -343,12 +347,42 @@ void turtlebot_controller(turtlebotInputs turtlebot_inputs, uint8_t *soundValue,
 								if (rightReading < minDistance) {
 									minDistance = rightReading;
 								}
+								if (i < 30 && rightReading < minFrontDistance) {
+									minFrontDistance = rightReading;
+								}
 							}
 						}
 						
 						// Dynamic Turning
+						// Lidar values
 						float valDifference = totalLeftDistance - totalRightDistance;
-						float angularVelocity = valDifference * 0.000001;
+						
+						// Goal Heading
+						float headingToGoal = thetaGoal - theta;
+						
+						if (minDistance > 2) {
+							minDistance = 2;
+						}
+						if (minDistance < 0.2) {
+							minDistance = 0.2;
+						}
+						
+						float lidarVsGoalProportion = goalDist * 0.5;
+						if (minDistance < 0.7) {
+							lidarVsGoalProportion /= minDistance;
+						} else if (minDistance > 1) {
+							lidarVsGoalProportion /= (minDistance*2);
+						}
+						
+						if (lidarVsGoalProportion > 2) {
+							lidarVsGoalProportion = 2;
+						}
+						else if (lidarVsGoalProportion <=0) {
+							lidarVsGoalProportion = 0.0000001;
+						}
+						
+						ROS_INFO("Proportion: %f | headingToGoal: %f", lidarVsGoalProportion, headingToGoal);
+						float angularVelocity = ((valDifference * 0.000001) * lidarVsGoalProportion) + ((headingToGoal * 0.08) / lidarVsGoalProportion);
 						if (angularVelocity > 1) {
 							angularVelocity = 1;
 						}
@@ -357,80 +391,18 @@ void turtlebot_controller(turtlebotInputs turtlebot_inputs, uint8_t *soundValue,
 						}
 						
 						// Dynamic Speed
-						if (minDistance > 1) {
-							minDistance = 1;
+						if (minFrontDistance > 1) {
+							minFrontDistance = 1;
 						}
-						if (minDistance < 0.2) {
-							minDistance = 0.2;
+						if (minFrontDistance < 0.2) {
+							minFrontDistance = 0.2;
 						}
-						float speed = (minDistance - 0.2) * 0.1;
+
+						float speed = (minFrontDistance - 0.2) * 0.1;
 						ROS_INFO("Speed: %f | Turning: %f", speed, angularVelocity);
 						
 						*ang_vel = angularVelocity;
 						*vel = speed;
-						
-						/*if (!postWaitAction) {
-							int i;
-							bool objectFound = false;
-							for (i = 0; i < turtlebot_inputs.numPoints; i++) {
-								float triggerDistance = 0.5;
-								if (waiting) {
-									triggerDistance += 0.1;
-								}
-								if (turtlebot_inputs.ranges[i] < triggerDistance) {
-									if (!waiting) {
-										ROS_INFO("Obstacle detected");
-										waiting = true;
-										waitTime = 0;
-										*vel = 0.0;
-										*ang_vel = 0.0;
-										*soundValue = 2;
-									}
-									objectFound = true;
-									i = turtlebot_inputs.numPoints;
-								}
-							}
-							if (waiting && !objectFound) {
-								ROS_INFO("Obstacle moved away");
-								waiting = false;
-								waitTime = 0;
-								postWaitAction = true;
-							}
-						}*/
-
-						/*if (waiting) {
-							if (waitTime % 10 == 0) {
-								ROS_INFO("Waiting for %u seconds", (15 - (waitTime / 10))); 
-							}
-							*vel = 0.0;
-							*ang_vel = 0.0;
-							waitTime++;
-							if (waitTime > 150) {
-								ROS_INFO("done waiting");
-								waiting = false;
-								waitTime = 0;
-								postWaitAction = true;
-							}
-						} else if (postWaitAction) {
-							*vel = 0.0;
-							*ang_vel = 0.3;
-							bool objectFound = false;
-							int i;
-							for (i = 0; i < turtlebot_inputs.numPoints; i++) {
-								float triggerDistance = 0.5;
-								if (postWaitAction) {
-									triggerDistance += 0.1;
-								}
-								if (turtlebot_inputs.ranges[i] < triggerDistance) {
-									objectFound = true;
-									i = turtlebot_inputs.numPoints;
-								}
-							}
-							if (!objectFound) {
-								ROS_INFO("Preceeding Forward");
-								postWaitAction = false;
-							}
-						}*/
 					}
 				}
 			}
