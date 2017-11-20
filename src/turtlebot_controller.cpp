@@ -23,6 +23,8 @@ bool waiting = false;
 bool postWaitAction = false;
 
 bool initializeNavigation = true;
+
+//flags to decide which way is faster to turn
 bool leftTrigger = false;
 bool rightTrigger = false;
 
@@ -34,13 +36,15 @@ float startDirection = 0;
 bool fullStop = false;
 
 // goalLocationCoords
-float xGoal = 2.0;
-float yGoal = -2.0;
+float xGoal = 5.0;
+float yGoal = -5.0;
 
 bool testing = false;
 
 void turtlebot_controller(turtlebotInputs turtlebot_inputs, uint8_t *soundValue, float *vel, float *ang_vel) {
 	// The Robots direction from 0 - 180 degrees (in radians)
+	
+	//pre operation calculations
 	float theta = atan2(2.0*(turtlebot_inputs.z_angle*turtlebot_inputs.orientation_omega),(-(turtlebot_inputs.z_angle*turtlebot_inputs.z_angle) + (turtlebot_inputs.orientation_omega*turtlebot_inputs.orientation_omega)));
 	if (theta < 0) {
 		//theta = 2 * 3.14159265358979323846264338327950288 + theta;
@@ -64,8 +68,12 @@ void turtlebot_controller(turtlebotInputs turtlebot_inputs, uint8_t *soundValue,
 		ROS_INFO("Theta %f", theta);
 		ROS_INFO("GoalDirection %f", thetaGoal);
 		
-	} else {
+	} 
+	//normal operations
+	else {
 		double horizontalAcceleration = pow(pow(turtlebot_inputs.linearAccelX, 2) + pow(turtlebot_inputs.linearAccelY, 2), 0.5);
+		
+		//turtlebot is falling!
 		if (turtlebot_inputs.leftWheelDropped == 1 ||
 			turtlebot_inputs.rightWheelDropped == 1 ||
 			horizontalAcceleration > 20 ||
@@ -74,21 +82,31 @@ void turtlebot_controller(turtlebotInputs turtlebot_inputs, uint8_t *soundValue,
 			fullStop = true;
 			*soundValue = 4;
 		}
+		
+		//if not stopping
 		if (!fullStop) {
+			
+			//start navigation
 			if (initializeNavigation) {
 				*vel = 0.0;
+				
+				//check if its faster to turn left
 				if (!(rightTrigger || leftTrigger) && theta > thetaGoal) {
 					ROS_INFO("Time to turnLeft: %f, %f", theta, thetaGoal);
 					leftTrigger = true;
 					rightTrigger = false;
 					*ang_vel = -0.2;
 				}
+				
+				//check if its faster to turn right
 				if (!(rightTrigger || leftTrigger) && theta < thetaGoal) {
 					ROS_INFO("Time to turnRight: %f, %f", theta, thetaGoal);
 					rightTrigger = true;
 					leftTrigger = false;
 					*ang_vel = 0.2;
 				}
+				
+				//end navigation and rotate left
 				if (leftTrigger) {
 					if (theta <= thetaGoal) {
 						ROS_INFO("Facing Towards Objective: leftTurn %f, %f", theta, thetaGoal);
@@ -98,6 +116,8 @@ void turtlebot_controller(turtlebotInputs turtlebot_inputs, uint8_t *soundValue,
 						rightTrigger = false;
 					}
 				}
+				
+				//end navigation and rotate right
 				if (rightTrigger) {
 					if (theta >= thetaGoal) {
 						ROS_INFO("Facing Towards Objective: rightTurn %f, %f", theta, thetaGoal);
@@ -108,14 +128,19 @@ void turtlebot_controller(turtlebotInputs turtlebot_inputs, uint8_t *soundValue,
 					}
 				}
 			}
+			
+			//if adjusting theta
 			else {
 				float goalDist = pow(pow(xGoal - turtlebot_inputs.x, 2) + pow(yGoal - turtlebot_inputs.y, 2), 0.5);
+				
+				//if goal within small distance, victory!
 				if (!arrivalRitual && (goalDist < 0.2)) {
 					ROS_INFO("Arrived At Objective: (%f)", goalDist);
 					arrivalRitual = true;
 					startDirection = theta;
 				}
 
+				//victory dance!
 				if (arrivalRitual) {
 					*vel = 0.0;
 					*ang_vel = -0.5;
@@ -130,9 +155,20 @@ void turtlebot_controller(turtlebotInputs turtlebot_inputs, uint8_t *soundValue,
 					else {
 						ROS_INFO("DONE: (%f, %f)", turtlebot_inputs.x, turtlebot_inputs.y);
 						arrivalRitual = false;
-						fullStop = true;
+						//fullStop = true;
+						
+						if(xGoal == 0 && yGoal == 0){
+							arrivalRitual = false;
+							fullStop = true;
+							ROS_INFO("Finished navigation!");
+						}
+						xGoal = 0;
+						yGoal = 0;
 					}
-				} else {
+				} 
+				
+				//
+				else {
 					*vel = 0.1; // Robot forward velocity in m/s
 					*ang_vel = 0.0;  // Robot angular velocity in rad/s
 
@@ -168,6 +204,8 @@ void turtlebot_controller(turtlebotInputs turtlebot_inputs, uint8_t *soundValue,
 							doingBumperStuff = true;
 						}
 					}
+					
+					//if starting to fall down or bumper pressed, back up and rotate
 					if (doingBumperStuff) {
 						if (!backingUp && postTurnMinDrive) {
 							actionCounter++;
@@ -187,8 +225,11 @@ void turtlebot_controller(turtlebotInputs turtlebot_inputs, uint8_t *soundValue,
 							*ang_vel = 0;
 							actionCounter++;
 
+							//when done backing up, start rotating
 							if (actionCounter >= 30) {
 								ROS_INFO("Done Reversing, Start Turn: %i", turnDirection);
+								
+								//when finished rotating
 								if (turnDirection == 0) {
 									int sequentialLeftNaN = 0;
 									int sequentialRightNaN = 0;
@@ -212,6 +253,8 @@ void turtlebot_controller(turtlebotInputs turtlebot_inputs, uint8_t *soundValue,
 										}
 										// ROS_INFO("[%i: %f] | [%i: %f]", leftReadingIndex, leftReading, rightReadingIndex, rightReading);
 										float valDifference = pow(pow(leftReading - rightReading, 2), 0.5);
+										
+										//parameter for lidar turns
 										if (sequentialRightNaN > 10 || (valDifference > 0.1 && leftReading < rightReading)) {
 											turnDirection = 1;
 											i = turtlebot_inputs.numPoints/2;
@@ -382,7 +425,7 @@ void turtlebot_controller(turtlebotInputs turtlebot_inputs, uint8_t *soundValue,
 						}
 						
 						ROS_INFO("Proportion: %f | headingToGoal: %f", lidarVsGoalProportion, headingToGoal);
-						float angularVelocity = ((valDifference * 0.000001) * lidarVsGoalProportion) + ((headingToGoal * 0.08) / lidarVsGoalProportion);
+						float angularVelocity = ((valDifference * 0.000003) * lidarVsGoalProportion) + ((headingToGoal * 0.08) / lidarVsGoalProportion);
 						if (angularVelocity > 1) {
 							angularVelocity = 1;
 						}
@@ -406,7 +449,7 @@ void turtlebot_controller(turtlebotInputs turtlebot_inputs, uint8_t *soundValue,
 					}
 				}
 			}
-		}
+		} //end !fullstop condition
 		else {
 			*vel = 0.0; // Robot forward velocity in m/s
 			*ang_vel = 0.0;  // Robot angular velocity in rad/s
