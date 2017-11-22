@@ -36,8 +36,8 @@ float startDirection = 0;
 bool fullStop = false;
 
 // goalLocationCoords
-float xGoal = 5.0;
-float yGoal = -5.0;
+float xGoal = -3.0;
+float yGoal = 3.0;
 
 bool testing = false;
 
@@ -46,9 +46,6 @@ void turtlebot_controller(turtlebotInputs turtlebot_inputs, uint8_t *soundValue,
 	
 	//pre operation calculations
 	float theta = atan2(2.0*(turtlebot_inputs.z_angle*turtlebot_inputs.orientation_omega),(-(turtlebot_inputs.z_angle*turtlebot_inputs.z_angle) + (turtlebot_inputs.orientation_omega*turtlebot_inputs.orientation_omega)));
-	if (theta < 0) {
-		//theta = 2 * 3.14159265358979323846264338327950288 + theta;
-	}
 	float thetaGoal = atan((yGoal - turtlebot_inputs.y) / (xGoal - turtlebot_inputs.x));
 	if ((xGoal - turtlebot_inputs.x) < 0) {
 		if ((yGoal - turtlebot_inputs.y) < 0) {
@@ -95,7 +92,7 @@ void turtlebot_controller(turtlebotInputs turtlebot_inputs, uint8_t *soundValue,
 					ROS_INFO("Time to turnLeft: %f, %f", theta, thetaGoal);
 					leftTrigger = true;
 					rightTrigger = false;
-					*ang_vel = -0.2;
+					*ang_vel = -0.5;
 				}
 				
 				//check if its faster to turn right
@@ -103,7 +100,7 @@ void turtlebot_controller(turtlebotInputs turtlebot_inputs, uint8_t *soundValue,
 					ROS_INFO("Time to turnRight: %f, %f", theta, thetaGoal);
 					rightTrigger = true;
 					leftTrigger = false;
-					*ang_vel = 0.2;
+					*ang_vel = 0.5;
 				}
 				
 				//end navigation and rotate left
@@ -143,10 +140,10 @@ void turtlebot_controller(turtlebotInputs turtlebot_inputs, uint8_t *soundValue,
 				//victory dance!
 				if (arrivalRitual) {
 					*vel = 0.0;
-					*ang_vel = -0.5;
+					*ang_vel = -1.0;
 					if (spins < 4) {
 						incrementDelay--;
-						if (incrementDelay <= 0 && pow(pow(startDirection - theta, 2), 0.5) < 0.2) {
+						if (incrementDelay <= 0 && pow(pow(startDirection - theta, 2), 0.5) < 0.5) {
 							ROS_INFO("Spins: %i", spins);
 							incrementDelay = 100;
 							spins++;
@@ -214,7 +211,7 @@ void turtlebot_controller(turtlebotInputs turtlebot_inputs, uint8_t *soundValue,
 								ROS_INFO("Obsticale Cleared");
 								postTurnMinDrive = false;
 								actionCounter = 0;
-								initializeNavigation = true;
+								//initializeNavigation = true;
 								doingBumperStuff = false;
 							}
 						}
@@ -290,7 +287,7 @@ void turtlebot_controller(turtlebotInputs turtlebot_inputs, uint8_t *soundValue,
 						
 						// turningPhase Condition
 						if (turningPhase1) {
-							*ang_vel = 0.2 * -turnDirection;
+							*ang_vel = 0.5 * -turnDirection;
 							*vel = 0;
 
 							incrementDelay--;
@@ -327,7 +324,7 @@ void turtlebot_controller(turtlebotInputs turtlebot_inputs, uint8_t *soundValue,
 
 						// turningPhase Condition
 						if (turningPhase2) {
-							*ang_vel = 0.2 * turnDirection;
+							*ang_vel = 0.5 * turnDirection;
 							*vel = 0;
 
 							incrementDelay--;
@@ -344,6 +341,11 @@ void turtlebot_controller(turtlebotInputs turtlebot_inputs, uint8_t *soundValue,
 					}
 					// Laser Scan Stuff!!
 					else {
+						if (xGoal < 0) {
+							theta += 3.14159 * 2;
+							thetaGoal += 3.14159 * 2;
+						}
+	
 						int sequentialLeftNaN = 0;
 						int sequentialRightNaN = 0;
 						float totalLeftDistance = 0;
