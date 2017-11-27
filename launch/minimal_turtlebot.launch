@@ -1,0 +1,9 @@
+<launch>
+  <arg name="sim" default="true" />
+
+  <include if="$(arg sim)" file="$(find turtlebot_gazebo)/launch/turtlebot_world.launch" />
+  <node unless="$(arg sim)" pkg="amcl" type="amcl" name="amcl" />
+
+  <node pkg="minimal_turtlebot" type="minimal_turtlebot" name="minimal_turtlebot" output="screen"/>
+  
+</launch>

@@ -207,7 +207,7 @@ void turtlebot_controller(turtlebotInputs turtlebot_inputs, uint8_t *soundValue,
 						if (!backingUp && postTurnMinDrive) {
 							actionCounter++;
 
-							if(actionCounter >= 40) {
+							if(actionCounter >= 60) {
 								ROS_INFO("Obsticale Cleared");
 								postTurnMinDrive = false;
 								actionCounter = 0;
