@@ -145,19 +145,19 @@ void turtlebot_controller(turtlebotInputs turtlebot_inputs, uint8_t *soundValue,
 						incrementDelay--;
 						if (incrementDelay <= 0 && pow(pow(startDirection - theta, 2), 0.5) < 0.5) {
 							ROS_INFO("Spins: %i", spins);
-							incrementDelay = 100;
+							incrementDelay = 20;
 							spins++;
 						}
 					}
 					else {
 						ROS_INFO("DONE: (%f, %f)", turtlebot_inputs.x, turtlebot_inputs.y);
 						arrivalRitual = false;
-						//fullStop = true;
 						
 						if(xGoal == 0 && yGoal == 0){
 							arrivalRitual = false;
 							fullStop = true;
 							ROS_INFO("Finished navigation!");
+							fullStop = true;
 						}
 						xGoal = 0;
 						yGoal = 0;
@@ -449,7 +449,7 @@ void turtlebot_controller(turtlebotInputs turtlebot_inputs, uint8_t *soundValue,
 						}
 
 						float speed = (minFrontDistance - 0.2) * 0.1;
-						ROS_INFO("Speed: %f | Turning: %f", speed, angularVelocity);
+						ROS_INFO("(%f,%f) Speed: %f | Turning: %f", turtlebot_inputs.x, turtlebot_inputs.y, speed, angularVelocity);
 						
 						*ang_vel = angularVelocity;
 						*vel = speed;
