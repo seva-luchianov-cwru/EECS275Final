@@ -175,6 +175,7 @@ void turtlebot_controller(turtlebotInputs turtlebot_inputs, uint8_t *soundValue,
 						if (turtlebot_inputs.sensor0State == 1 || turtlebot_inputs.leftBumperPressed == 1) {
 							ROS_INFO("Left Bumper Hit");
 							backingUp = true;
+							turnDrive = false;
 							ignoreBumper = true;
 							turnDirection = 1;
 							actionCounter = 0;
@@ -185,6 +186,7 @@ void turtlebot_controller(turtlebotInputs turtlebot_inputs, uint8_t *soundValue,
 						if (turtlebot_inputs.sensor2State == 1 || turtlebot_inputs.rightBumperPressed == 1) {
 							ROS_INFO("Right Bumper Hit");
 							backingUp = true;
+							turnDrive = false;
 							ignoreBumper = true;
 							turnDirection = -1;
 							actionCounter = 0;
@@ -196,6 +198,7 @@ void turtlebot_controller(turtlebotInputs turtlebot_inputs, uint8_t *soundValue,
 							actionCounter = 0;
 							ignoreBumper = true;
 							backingUp = true;
+							turnDrive = false;
 							postTurnMinDrive = false;
 							turnDirection = 0;
 							doingBumperStuff = true;
@@ -207,7 +210,7 @@ void turtlebot_controller(turtlebotInputs turtlebot_inputs, uint8_t *soundValue,
 						if (!backingUp && postTurnMinDrive) {
 							actionCounter++;
 
-							if(actionCounter >= 40) {
+							if(actionCounter >= 60) {
 								ROS_INFO("Obsticale Cleared");
 								postTurnMinDrive = false;
 								actionCounter = 0;
@@ -297,6 +300,7 @@ void turtlebot_controller(turtlebotInputs turtlebot_inputs, uint8_t *soundValue,
 								turningPhase1 = false;
 								turnDrive = true;
 								actionCounter = 0;
+								ignoreBumper = false;
 							}
 						}
 						
@@ -310,6 +314,7 @@ void turtlebot_controller(turtlebotInputs turtlebot_inputs, uint8_t *soundValue,
 								turnDrive = false;
 								actionCounter = 0;
 								turningPhase2 = true;
+								ignoreBumper = true;
 								goalTurnTheta = theta + (turnDirection*(3.14159/2));
 								if (goalTurnTheta > 3.14159) {
 									goalTurnTheta = goalTurnTheta - 2 * 3.14159;
