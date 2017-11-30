@@ -22,7 +22,7 @@ int waitTime = 0;
 bool waiting = false;
 bool postWaitAction = false;
 
-bool initializeNavigation = true;
+bool initializeNavigation = false;
 
 //flags to decide which way is faster to turn
 bool leftTrigger = false;
@@ -39,9 +39,24 @@ bool fullStop = false;
 float xGoal = -3.0;
 float yGoal = 3.0;
 
+// Normal Operations state
+bool exploring = true;
+float startTime = 0;
+
+bool initialExplore = true;
+
+bool initializeStartTime = true;
+float exploreTime = 30; // in seconds
+
+
 bool testing = false;
 
 void turtlebot_controller(turtlebotInputs turtlebot_inputs, uint8_t *soundValue, float *vel, float *ang_vel) {
+	// do we even know where we are?
+	if (initializeStartTime && (turtlebot_inputs.nanoSecs > 0)) {
+		startTime = turtlebot_inputs.nanoSecs;
+		initializeStartTime = false;
+	}
 	// The Robots direction from 0 - 180 degrees (in radians)
 	
 	//pre operation calculations
@@ -66,10 +81,10 @@ void turtlebot_controller(turtlebotInputs turtlebot_inputs, uint8_t *soundValue,
 		ROS_INFO("GoalDirection %f", thetaGoal);
 		
 	} 
-	//normal operations
+	// Actual Algorithm
 	else {
 		double horizontalAcceleration = pow(pow(turtlebot_inputs.linearAccelX, 2) + pow(turtlebot_inputs.linearAccelY, 2), 0.5);
-		
+			
 		//turtlebot is falling!
 		if (turtlebot_inputs.leftWheelDropped == 1 ||
 			turtlebot_inputs.rightWheelDropped == 1 ||
@@ -80,9 +95,22 @@ void turtlebot_controller(turtlebotInputs turtlebot_inputs, uint8_t *soundValue,
 			*soundValue = 4;
 		}
 		
-		//if not stopping
 		if (!fullStop) {
-			
+			// Should we navigate or explore?
+			bool unknownPosition = isnan(turtlebot_inputs.x) || isnan(turtlebot_inputs.y) || isnan(turtlebot_inputs.orientation_omega) || isnan(turtlebot_inputs.z_angle);
+			if (exploring && ((turtlebot_inputs.nanoSecs - startTime) >= exploreTime*1000000000) && !unknownPosition) {
+				exploring = false;
+				initializeNavigation = true;
+			}
+		
+			// Normal operations
+			if (unknownPosition) {
+				exploring = true;
+				initializeStartTime = true;
+				exploreTime = 10;
+				return;
+			}
+
 			//start navigation
 			if (initializeNavigation) {
 				*vel = 0.0;
@@ -126,14 +154,14 @@ void turtlebot_controller(turtlebotInputs turtlebot_inputs, uint8_t *soundValue,
 				}
 			}
 			
-			//if adjusting theta
+			// overall navigation algorithm
 			else {
 				float goalDist = pow(pow(xGoal - turtlebot_inputs.x, 2) + pow(yGoal - turtlebot_inputs.y, 2), 0.5);
-				
 				//if goal within small distance, victory!
 				if (!arrivalRitual && (goalDist < 0.2)) {
 					ROS_INFO("Arrived At Objective: (%f)", goalDist);
 					arrivalRitual = true;
+					exploring = false;
 					startDirection = theta;
 				}
 
@@ -162,13 +190,24 @@ void turtlebot_controller(turtlebotInputs turtlebot_inputs, uint8_t *soundValue,
 						xGoal = 0;
 						yGoal = 0;
 					}
-				} 
+				}
 				
-				//
+				// We are still driving, not arrived
 				else {
-					*vel = 0.1; // Robot forward velocity in m/s
-					*ang_vel = 0.0;  // Robot angular velocity in rad/s
-
+					*vel = 0.1;
+					if (exploring) {
+						ROS_INFO("EXPLORING TURN: %f", *ang_vel);
+						float elapsedExploreTime = exploreTime - ((turtlebot_inputs.nanoSecs - startTime) / 1000000000);
+						if (elapsedExploreTime < 0) {
+							elapsedExploreTime = 0;
+						}
+						ROS_INFO("elapsedExploreTime: %f", elapsedExploreTime);
+						*ang_vel = 0.02 * elapsedExploreTime;
+					}
+					else {
+						*ang_vel = 0.0;  // Robot angular velocity in rad/s
+					}
+					
 					// Sensor Condition
 					if (ignoreBumper == false) {
 						// Left Bumper
@@ -424,14 +463,14 @@ void turtlebot_controller(turtlebotInputs turtlebot_inputs, uint8_t *soundValue,
 							lidarVsGoalProportion /= (minDistance*2);
 						}
 						
-						if (lidarVsGoalProportion > 2) {
+						if (exploring || lidarVsGoalProportion > 2) {
 							lidarVsGoalProportion = 2;
 						}
 						else if (lidarVsGoalProportion <=0) {
 							lidarVsGoalProportion = 0.0000001;
 						}
 						
-						ROS_INFO("Proportion: %f | headingToGoal: %f", lidarVsGoalProportion, headingToGoal);
+						// ROS_INFO("Proportion: %f | headingToGoal: %f", lidarVsGoalProportion, headingToGoal);
 						float angularVelocity = ((valDifference * 0.000003) * lidarVsGoalProportion) + ((headingToGoal * 0.08) / lidarVsGoalProportion);
 						if (angularVelocity > 1) {
 							angularVelocity = 1;
@@ -449,9 +488,9 @@ void turtlebot_controller(turtlebotInputs turtlebot_inputs, uint8_t *soundValue,
 						}
 
 						float speed = (minFrontDistance - 0.2) * 0.1;
-						ROS_INFO("(%f,%f) Speed: %f | Turning: %f", turtlebot_inputs.x, turtlebot_inputs.y, speed, angularVelocity);
+						// ROS_INFO("(%f,%f) Speed: %f | Turning: %f", turtlebot_inputs.x, turtlebot_inputs.y, speed, angularVelocity);
 						
-						*ang_vel = angularVelocity;
+						// *ang_vel = angularVelocity;
 						*vel = speed;
 					}
 				}
