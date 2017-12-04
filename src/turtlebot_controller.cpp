@@ -294,15 +294,15 @@ void turtlebot_controller(turtlebotInputs turtlebot_inputs, uint8_t *soundValue,
 										float valDifference = pow(pow(leftReading - rightReading, 2), 0.5);
 										
 										//parameter for lidar turns
-										if (sequentialRightNaN > 10 || (valDifference > 0.1 && leftReading < rightReading)) {
+										if (sequentialRightNaN > 15 || (valDifference > 0.1 && leftReading < rightReading)) {
 											turnDirection = 1;
 											i = turtlebot_inputs.numPoints/2;
-											ROS_INFO("Center Bumper Hit, Turning Right");
+											//ROS_INFO("Center Bumper Hit, Turning Right");
 										}
-										if (sequentialLeftNaN > 10 || (valDifference > 0.1 && leftReading > rightReading)) {
+										if (sequentialLeftNaN > 15 || (valDifference > 0.1 && leftReading > rightReading)) {
 											turnDirection = -1;
 											i = turtlebot_inputs.numPoints/2;
-											ROS_INFO("Center Bumper Hit, Turning Left");
+											//ROS_INFO("Center Bumper Hit, Turning Left");
 										}
 									}
 								}
@@ -385,6 +385,7 @@ void turtlebot_controller(turtlebotInputs turtlebot_inputs, uint8_t *soundValue,
 					}
 					// Laser Scan Stuff!!
 					else {
+						float maxDistMeasured = 1000;
 						if (xGoal < 0) {
 							theta += 3.14159 * 2;
 							thetaGoal += 3.14159 * 2;
@@ -485,12 +486,17 @@ void turtlebot_controller(turtlebotInputs turtlebot_inputs, uint8_t *soundValue,
 						}
 						if (minFrontDistance < 0.2) {
 							minFrontDistance = 0.2;
+							if (exploring) {
+								*ang_vel = angularVelocity;
+							}
 						}
 
 						float speed = (minFrontDistance - 0.2) * 0.1;
 						// ROS_INFO("(%f,%f) Speed: %f | Turning: %f", turtlebot_inputs.x, turtlebot_inputs.y, speed, angularVelocity);
 						
-						// *ang_vel = angularVelocity;
+						if (!exploring) {
+							*ang_vel = angularVelocity;
+						}
 						*vel = speed;
 					}
 				}
