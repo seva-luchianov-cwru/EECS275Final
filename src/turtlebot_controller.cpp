@@ -36,8 +36,8 @@ float startDirection = 0;
 bool fullStop = false;
 
 // goalLocationCoords
-float xGoal = -3.0;
-float yGoal = 3.0;
+float xGoal = -4.0;
+float yGoal = 0.0;
 
 // Normal Operations state
 bool exploring = true;
@@ -339,7 +339,7 @@ void turtlebot_controller(turtlebotInputs turtlebot_inputs, uint8_t *soundValue,
 								turningPhase1 = false;
 								turnDrive = true;
 								actionCounter = 0;
-								ignoreBumper = false;
+								// ignoreBumper = false;
 							}
 						}
 						
