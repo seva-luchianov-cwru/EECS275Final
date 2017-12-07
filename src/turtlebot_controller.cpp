@@ -18,7 +18,7 @@ bool postTurnMinDrive = false;
 bool ignoreBumper = false;
 int actionCounter = 0;
 
-int waitTime = 0;
+unsigned int waitTime = 0;
 bool waiting = false;
 bool postWaitAction = false;
 
@@ -29,8 +29,8 @@ bool leftTrigger = false;
 bool rightTrigger = false;
 
 bool arrivalRitual = false;
-int spins = 0;
-int incrementDelay = 0;
+unsigned int spins = 0;
+unsigned int incrementDelay = 0;
 float startDirection = 0;
 
 bool fullStop = false;
@@ -41,7 +41,7 @@ float yGoal = 0.0;
 
 // Normal Operations state
 bool exploring = true;
-float startTime = 0;
+uint32_t startTime = 0;
 
 bool initialExplore = true;
 
@@ -49,7 +49,7 @@ bool initializeStartTime = true;
 float exploreTime = 30; // in seconds
 
 
-bool testing = false;
+bool testing = true;
 
 void turtlebot_controller(turtlebotInputs turtlebot_inputs, uint8_t *soundValue, float *vel, float *ang_vel) {
 	// do we even know where we are?
@@ -79,6 +79,8 @@ void turtlebot_controller(turtlebotInputs turtlebot_inputs, uint8_t *soundValue,
 		ROS_INFO("Z-Angle %f", turtlebot_inputs.z_angle);
 		ROS_INFO("Theta %f", theta);
 		ROS_INFO("GoalDirection %f", thetaGoal);
+		ROS_INFO("time elapsed %lu", turtlebot_inputs.nanoSecs);
+		ROS_INFO("explored time %lu", (turtlebot_inputs.nanoSecs - startTime));
 		
 	} 
 	// Actual Algorithm
@@ -197,11 +199,11 @@ void turtlebot_controller(turtlebotInputs turtlebot_inputs, uint8_t *soundValue,
 					*vel = 0.1;
 					if (exploring) {
 						ROS_INFO("EXPLORING TURN: %f", *ang_vel);
-						float elapsedExploreTime = exploreTime - ((turtlebot_inputs.nanoSecs - startTime) / 1000000000);
+						int32_t elapsedExploreTime = exploreTime - ((turtlebot_inputs.nanoSecs - startTime) / 1000000000ll);
 						if (elapsedExploreTime < 0) {
 							elapsedExploreTime = 0;
 						}
-						ROS_INFO("elapsedExploreTime: %f", elapsedExploreTime);
+						ROS_INFO("elapsedExploreTime: %lu", elapsedExploreTime);
 						*ang_vel = 0.02 * elapsedExploreTime;
 					}
 					else {
@@ -266,7 +268,7 @@ void turtlebot_controller(turtlebotInputs turtlebot_inputs, uint8_t *soundValue,
 
 							//when done backing up, start rotating
 							if (actionCounter >= 30) {
-								ROS_INFO("Done Reversing, Start Turn: %i", turnDirection);
+								ROS_INFO("Done Reversing, Start Turn: %li", turnDirection);
 								
 								//when finished rotating
 								if (turnDirection == 0) {
