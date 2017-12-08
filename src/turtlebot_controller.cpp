@@ -1,5 +1,6 @@
 #include "minimal_turtlebot/turtlebot_controller.h"
 #include <math.h>
+#include <inttypes.h>
 
 bool doingBumperStuff = false;
 
@@ -36,24 +37,23 @@ float startDirection = 0;
 bool fullStop = false;
 
 // goalLocationCoords
-float xGoal = -4.0;
+float xGoal = 4.0;
 float yGoal = 0.0;
 
 // Normal Operations state
 bool exploring = true;
-uint32_t startTime = 0;
+uint64_t startTime = 0ll;
 
 bool initialExplore = true;
 
 bool initializeStartTime = true;
-float exploreTime = 30; // in seconds
+uint64_t exploreTime = 10ll; // in seconds
 
-
-bool testing = true;
+bool testing = false;
 
 void turtlebot_controller(turtlebotInputs turtlebot_inputs, uint8_t *soundValue, float *vel, float *ang_vel) {
 	// do we even know where we are?
-	if (initializeStartTime && (turtlebot_inputs.nanoSecs > 0)) {
+	if (initializeStartTime && (turtlebot_inputs.nanoSecs > 0ll)) {
 		startTime = turtlebot_inputs.nanoSecs;
 		initializeStartTime = false;
 	}
@@ -74,16 +74,20 @@ void turtlebot_controller(turtlebotInputs turtlebot_inputs, uint8_t *soundValue,
 	if (testing) {
 		//*vel = 0.1;
 		*ang_vel = 0.2;
-		ROS_INFO("X %f", turtlebot_inputs.x);
-		ROS_INFO("Y %f", turtlebot_inputs.y);
-		ROS_INFO("Z-Angle %f", turtlebot_inputs.z_angle);
-		ROS_INFO("Theta %f", theta);
-		ROS_INFO("GoalDirection %f", thetaGoal);
-		ROS_INFO("time elapsed %lu", turtlebot_inputs.nanoSecs);
-		ROS_INFO("explored time %lu", (turtlebot_inputs.nanoSecs - startTime));
+		printf("startTime %" PRIu64 "\n",startTime);
+		printf("currTime %" PRIu64 "\n",turtlebot_inputs.nanoSecs);
+		printf("exploreTime %" PRIu64 "\n",exploreTime);
+		uint64_t elapsedExploreTime = exploreTime - ((turtlebot_inputs.nanoSecs - startTime) / 1000000000ll);
+		// uint32_t elapsedExploreTime = exploreTime - (turtlebot_inputs.nanoSecs - startTime);
+		if (elapsedExploreTime < 0ll) {
+			ROS_INFO("REEEEEEEEEEEEEEE");
+			elapsedExploreTime = 0ll;
+		}
+		printf("elapsedExploreTime %" PRIu64 "\n",elapsedExploreTime);
 		
-	} 
+	}
 	// Actual Algorithm
+	#if 1
 	else {
 		double horizontalAcceleration = pow(pow(turtlebot_inputs.linearAccelX, 2) + pow(turtlebot_inputs.linearAccelY, 2), 0.5);
 			
@@ -100,7 +104,7 @@ void turtlebot_controller(turtlebotInputs turtlebot_inputs, uint8_t *soundValue,
 		if (!fullStop) {
 			// Should we navigate or explore?
 			bool unknownPosition = isnan(turtlebot_inputs.x) || isnan(turtlebot_inputs.y) || isnan(turtlebot_inputs.orientation_omega) || isnan(turtlebot_inputs.z_angle);
-			if (exploring && ((turtlebot_inputs.nanoSecs - startTime) >= exploreTime*1000000000) && !unknownPosition) {
+			if (exploring && ((turtlebot_inputs.nanoSecs - startTime) >= exploreTime * 1000000000ll) && !unknownPosition) {
 				exploring = false;
 				initializeNavigation = true;
 			}
@@ -109,7 +113,7 @@ void turtlebot_controller(turtlebotInputs turtlebot_inputs, uint8_t *soundValue,
 			if (unknownPosition) {
 				exploring = true;
 				initializeStartTime = true;
-				exploreTime = 10;
+				exploreTime = 10ll;
 				return;
 			}
 
@@ -196,15 +200,15 @@ void turtlebot_controller(turtlebotInputs turtlebot_inputs, uint8_t *soundValue,
 				
 				// We are still driving, not arrived
 				else {
-					*vel = 0.1;
+					*vel = 0.5;
 					if (exploring) {
 						ROS_INFO("EXPLORING TURN: %f", *ang_vel);
-						int32_t elapsedExploreTime = exploreTime - ((turtlebot_inputs.nanoSecs - startTime) / 1000000000ll);
-						if (elapsedExploreTime < 0) {
-							elapsedExploreTime = 0;
+						uint64_t elapsedExploreTime = exploreTime - ((turtlebot_inputs.nanoSecs - startTime) / 1000000000ll);
+						if (elapsedExploreTime < 0ll) {
+							elapsedExploreTime = 0ll;
 						}
-						ROS_INFO("elapsedExploreTime: %lu", elapsedExploreTime);
-						*ang_vel = 0.02 * elapsedExploreTime;
+						//ROS_INFO("elapsedExploreTime: %lu", elapsedExploreTime);
+						*ang_vel = 0.08 * elapsedExploreTime;
 					}
 					else {
 						*ang_vel = 0.0;  // Robot angular velocity in rad/s
@@ -324,7 +328,6 @@ void turtlebot_controller(turtlebotInputs turtlebot_inputs, uint8_t *soundValue,
 								if (goalTurnTheta < -3.14159) {
 									goalTurnTheta = goalTurnTheta + 2 * 3.14159;
 								}
-								ROS_INFO("cur heading: %f", theta);
 								ROS_INFO("goal heading: %f", goalTurnTheta);
 							}
 						}
@@ -333,6 +336,7 @@ void turtlebot_controller(turtlebotInputs turtlebot_inputs, uint8_t *soundValue,
 						if (turningPhase1) {
 							*ang_vel = 0.5 * -turnDirection;
 							*vel = 0;
+							ROS_INFO("cur heading: %f", theta);
 
 							incrementDelay--;
 							if (incrementDelay <= 0 && pow(pow(goalTurnTheta - theta, 2), 0.5) < 0.15) {
@@ -363,7 +367,6 @@ void turtlebot_controller(turtlebotInputs turtlebot_inputs, uint8_t *soundValue,
 								if (goalTurnTheta < -3.14159) {
 									goalTurnTheta = goalTurnTheta + 2 * 3.14159;
 								}
-								ROS_INFO("cur heading: %f", theta);
 								ROS_INFO("goal heading: %f", goalTurnTheta);
 							}
 						}
@@ -372,6 +375,7 @@ void turtlebot_controller(turtlebotInputs turtlebot_inputs, uint8_t *soundValue,
 						if (turningPhase2) {
 							*ang_vel = 0.5 * turnDirection;
 							*vel = 0;
+							ROS_INFO("cur heading: %f", theta);
 
 							incrementDelay--;
 							if (incrementDelay <= 0 && pow(pow(goalTurnTheta - theta, 2), 0.5) < 0.15) {
@@ -473,7 +477,7 @@ void turtlebot_controller(turtlebotInputs turtlebot_inputs, uint8_t *soundValue,
 							lidarVsGoalProportion = 0.0000001;
 						}
 						
-						// ROS_INFO("Proportion: %f | headingToGoal: %f", lidarVsGoalProportion, headingToGoal);
+					    ROS_INFO("Proportion: %f | headingToGoal: %f", lidarVsGoalProportion, headingToGoal);
 						float angularVelocity = ((valDifference * 0.000003) * lidarVsGoalProportion) + ((headingToGoal * 0.08) / lidarVsGoalProportion);
 						if (angularVelocity > 1) {
 							angularVelocity = 1;
@@ -511,4 +515,6 @@ void turtlebot_controller(turtlebotInputs turtlebot_inputs, uint8_t *soundValue,
 			*soundValue = 4;
 		}
 	}
+	#endif
+	ROS_INFO("");
 }
